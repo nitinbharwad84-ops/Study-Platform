@@ -3,10 +3,10 @@ import { ShieldCheck } from "lucide-react";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 
 /**
- * Standalone layout for /admin/login — no sidebar, no topbar.
- * Overrides the parent (admin) layout just for this route.
+ * Layout for /admin/login — completely standalone, no sidebar, no topbar.
+ * Lives in (admin-auth) route group which has NO parent layout with sidebar.
  */
-export default function AdminLoginLayout({
+export default function AdminAuthLayout({
   children,
 }: {
   children: React.ReactNode;

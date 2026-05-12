@@ -3,22 +3,23 @@ import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import type { CookieOptions } from "@supabase/ssr";
 
-// Routes that don't require authentication
+// Lightweight role cookie set by the login API
+const ROLE_COOKIE = "sp-user-role";
+
 const PUBLIC_ROUTES = ["/login", "/register", "/forgot-password"];
-// Admin's own auth page — also public, but admin-specific
 const ADMIN_PUBLIC_ROUTES = ["/admin/login"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Always allow static assets and API routes
+  // Always allow static assets and API routes through
   if (pathname.startsWith("/api/") || pathname.startsWith("/_next")) {
     return NextResponse.next();
   }
 
   let response = NextResponse.next({ request: { headers: request.headers } });
 
-  // Build SSR Supabase client (reads + silently refreshes session cookies)
+  // Build SSR Supabase client to refresh session cookies
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -41,7 +42,12 @@ export async function middleware(request: NextRequest) {
     }
   );
 
+  // Validate session — getUser() makes a server call to verify the JWT
   const { data: { user } } = await supabase.auth.getUser();
+
+  // Read role from the lightweight cookie (set by login API, no DB query needed)
+  const role = request.cookies.get(ROLE_COOKIE)?.value ?? "student";
+  const isAdmin = role === "super_admin" || role === "normal_admin";
 
   const isStudentPublicRoute = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
   const isAdminPublicRoute = ADMIN_PUBLIC_ROUTES.some((r) => pathname === r);
@@ -53,71 +59,55 @@ export async function middleware(request: NextRequest) {
   // ---------------------------------------------------------
   if (isRootRoute) {
     if (!user) return NextResponse.redirect(new URL("/login", request.url));
-    return NextResponse.redirect(new URL("/dashboard", request.url));
-  }
-
-  // ---------------------------------------------------------
-  // Fetch role once (only if user is logged in and we need it)
-  // ---------------------------------------------------------
-  let role: string | null = null;
-  if (user) {
-    const { data: profile } = await supabase
-      .from("users")
-      .select("roles(name)")
-      .eq("id", user.id)
-      .single();
-    role = (profile?.roles as unknown as { name: string })?.name ?? "student";
+    return NextResponse.redirect(
+      new URL(isAdmin ? "/admin/dashboard" : "/dashboard", request.url)
+    );
   }
 
   // ---------------------------------------------------------
   // /admin/login — the admin auth page
   // ---------------------------------------------------------
   if (isAdminPublicRoute) {
-    // Already logged in as admin → go to admin dashboard
-    if (user && role && role !== "student") {
+    if (user && isAdmin) {
       return NextResponse.redirect(new URL("/admin/dashboard", request.url));
     }
-    // Logged in as student → go to student dashboard
-    if (user && role === "student") {
+    if (user && !isAdmin) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
-    // Not logged in → allow access to admin login page
-    return response;
+    return response; // not logged in — show the page
   }
 
   // ---------------------------------------------------------
   // Student public routes (/login, /register, /forgot-password)
   // ---------------------------------------------------------
   if (isStudentPublicRoute) {
-    if (user && role === "student") {
+    if (user && !isAdmin) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
-    if (user && role && role !== "student") {
+    if (user && isAdmin) {
       return NextResponse.redirect(new URL("/admin/dashboard", request.url));
     }
-    return response;
+    return response; // not logged in — show the page
   }
 
   // ---------------------------------------------------------
   // Admin protected routes (/admin/*)
   // ---------------------------------------------------------
   if (isAdminRoute) {
-    // Not logged in → redirect to admin login
     if (!user) {
       const loginUrl = new URL("/admin/login", request.url);
       loginUrl.searchParams.set("redirect", pathname);
       return NextResponse.redirect(loginUrl);
     }
-    // Logged in as student → deny, redirect to student dashboard
-    if (role === "student") {
+    if (!isAdmin) {
+      // Student trying to access admin — deny
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
-    // Admin — allow through
-    return response;
+    return response; // admin — allow through
   }
 
   // ---------------------------------------------------------
-  // Student protected routes (/dashboard, /mcq, /settings, etc.)
+  // All other protected routes (student routes)
   // ---------------------------------------------------------
   if (!user) {
     const loginUrl = new URL("/login", request.url);

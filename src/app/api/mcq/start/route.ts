@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       timerValue: number;
     };
 
-    const session = await getSession();
+    const session = await getSession(req);
     if (!session) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }

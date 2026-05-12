@@ -1,22 +1,33 @@
-import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server-auth";
+import { NextRequest, NextResponse } from "next/server";
+import { createServerClient as createSSRClient } from "@supabase/ssr";
 
 export const dynamic = "force-dynamic";
 
-/**
- * POST /api/auth/logout
- * Signs out the current user and clears session cookies.
- */
-export async function POST() {
-  try {
-    const supabase = createSupabaseServerClient();
-    await supabase.auth.signOut();
+const ROLE_COOKIE = "sp-user-role";
 
+export async function POST(req: NextRequest) {
+  try {
     const response = NextResponse.json({ success: true });
 
-    // Clear auth cookies
-    response.cookies.set("sb-access-token", "", { maxAge: 0, path: "/" });
-    response.cookies.set("sb-refresh-token", "", { maxAge: 0, path: "/" });
+    const supabase = createSSRClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) { return req.cookies.get(name)?.value; },
+          set(name: string, value: string, options) { response.cookies.set(name, value, options); },
+          remove(name: string, options) { response.cookies.set(name, "", { ...options, maxAge: 0 }); },
+        },
+      }
+    );
+
+    await supabase.auth.signOut();
+
+    // Clear the role cookie too
+    response.cookies.set(ROLE_COOKIE, "", {
+      path: "/",
+      maxAge: 0,
+    });
 
     return response;
   } catch (error) {

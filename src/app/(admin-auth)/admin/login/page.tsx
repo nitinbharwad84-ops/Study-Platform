@@ -41,13 +41,12 @@ export default function AdminLoginPage() {
         return;
       }
 
-      // Admin-only gate: reject students
+      // Admin-only gate: reject students trying to use admin portal
       if (data.user?.role === "student") {
         setError(
           "Access denied. This portal is for administrators only. " +
-          "Please use the student login at /login."
+          "Please use the student login page."
         );
-        // Sign them back out silently
         await fetch("/api/auth/logout", { method: "POST" });
         return;
       }
@@ -74,9 +73,7 @@ export default function AdminLoginPage() {
         {/* Warning banner */}
         <div className="mb-5 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-sm text-amber-700 dark:text-amber-300">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>
-            Unauthorized access attempts are logged and monitored.
-          </span>
+          <span>Unauthorized access attempts are logged and monitored.</span>
         </div>
 
         {error && (

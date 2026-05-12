@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
@@ -8,9 +8,9 @@ export const dynamic = "force-dynamic";
  * Returns the current authenticated user's profile and role.
  * Used by client components to hydrate user state.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const session = await getSession();
+    const session = await getSession(req);
 
     if (!session) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });

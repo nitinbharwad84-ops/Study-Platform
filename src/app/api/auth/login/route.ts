@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createServerClient as createSSRClient } from "@supabase/ssr";
 import { createServerClient } from "@/lib/supabase/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server-auth";
 
 export const dynamic = "force-dynamic";
 
-/**
- * POST /api/auth/login
- * Authenticates via email/password.
- * Returns role for client-side redirect logic.
- * Session cookie is set by Supabase client automatically.
- */
+const ROLE_COOKIE = "sp-user-role";
+
 export async function POST(req: NextRequest) {
   try {
     const { email, password } = await req.json();
@@ -18,11 +14,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
     }
 
-    const supabaseAuth = createSupabaseServerClient();
-    const { data: authData, error: signInError } = await supabaseAuth.auth.signInWithPassword({
-      email: email.toLowerCase().trim(),
-      password,
-    });
+    // Build response first so we can bind cookie writes to it
+    const cookieResponse = NextResponse.json({});
+
+    const supabase = createSSRClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) { return req.cookies.get(name)?.value; },
+          set(name: string, value: string, options) { cookieResponse.cookies.set(name, value, options); },
+          remove(name: string, options) { cookieResponse.cookies.set(name, "", { ...options, maxAge: 0 }); },
+        },
+      }
+    );
+
+    const { data: authData, error: signInError } =
+      await supabase.auth.signInWithPassword({
+        email: email.toLowerCase().trim(),
+        password,
+      });
 
     if (signInError || !authData.user) {
       return NextResponse.json(
@@ -31,27 +42,46 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Fetch user profile + role
+    // Service-role client → bypasses RLS, always works
     const adminClient = createServerClient();
+
     const { data: profile, error: profileError } = await adminClient
       .from("users")
-      .select("*, roles(name)")
+      .select("id, email, first_name, last_name, role_id, status")
       .eq("id", authData.user.id)
       .single();
 
     if (profileError || !profile) {
-      return NextResponse.json({ error: "User profile not found. Please contact support." }, { status: 404 });
+      console.error("[login] profile lookup failed:", profileError);
+      await supabase.auth.signOut();
+      return NextResponse.json(
+        { error: "User profile not found. Please contact support." },
+        { status: 404 }
+      );
     }
 
     if (profile.status === "disabled" || profile.status === "suspended") {
-      await supabaseAuth.auth.signOut();
-      return NextResponse.json({ error: "Your account has been disabled. Please contact an administrator." }, { status: 403 });
+      await supabase.auth.signOut();
+      return NextResponse.json(
+        { error: "Your account has been disabled. Please contact an administrator." },
+        { status: 403 }
+      );
     }
 
-    const role = (profile.roles as unknown as { name: string })?.name ?? "student";
+    // Fetch role explicitly by role_id
+    let role = "student";
+    if (profile.role_id) {
+      const { data: roleData } = await adminClient
+        .from("roles")
+        .select("name")
+        .eq("id", profile.role_id)
+        .single();
+      if (roleData?.name) role = roleData.name;
+    }
 
-    // Set session cookie via response headers
-    const response = NextResponse.json({
+    console.log(`[login] user=${profile.email} role=${role}`);
+
+    const finalResponse = NextResponse.json({
       success: true,
       user: {
         id: authData.user.id,
@@ -63,27 +93,26 @@ export async function POST(req: NextRequest) {
       redirectTo: role === "student" ? "/dashboard" : "/admin/dashboard",
     });
 
-    // Forward auth cookies from supabase response
-    const supabaseResponse = await supabaseAuth.auth.getSession();
-    if (supabaseResponse.data.session) {
-      const { access_token, refresh_token } = supabaseResponse.data.session;
-      response.cookies.set("sb-access-token", access_token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 60 * 60, // 1 hour
-      });
-      response.cookies.set("sb-refresh-token", refresh_token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 60 * 60 * 24 * 7, // 7 days
-      });
-    }
+    const cookieOpts = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax" as const,
+      path: "/",
+    };
 
-    return response;
+    // Transfer Supabase session cookies
+    cookieResponse.cookies.getAll().forEach((cookie) => {
+      finalResponse.cookies.set(cookie.name, cookie.value, cookieOpts);
+    });
+
+    // Set a lightweight role cookie that middleware can read without DB queries
+    finalResponse.cookies.set(ROLE_COOKIE, role, {
+      ...cookieOpts,
+      httpOnly: false, // readable by middleware (edge)
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+    });
+
+    return finalResponse;
   } catch (error) {
     console.error("[POST /api/auth/login]", error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });

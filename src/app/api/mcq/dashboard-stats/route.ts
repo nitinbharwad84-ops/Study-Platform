@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { getSession } from "@/lib/auth/session";
 
@@ -8,9 +8,9 @@ export const dynamic = "force-dynamic";
  * GET /api/mcq/dashboard-stats
  * Returns aggregated MCQ stats for the student dashboard.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const session = await getSession();
+    const session = await getSession(req);
     if (!session) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
