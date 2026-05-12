@@ -105,3 +105,21 @@ export function InlineSkeleton({ lines = 3 }: { lines?: number }) {
     </div>
   );
 }
+
+/**
+ * Unified LoadingSkeleton — dispatches to the appropriate variant.
+ * variant: "table" | "card-grid" | "page" | "inline"
+ */
+export function LoadingSkeleton({
+  variant = "page",
+  count,
+}: {
+  variant?: "table" | "card-grid" | "page" | "inline";
+  count?: number;
+}) {
+  if (variant === "table") return <TableSkeleton rows={count} />;
+  if (variant === "card-grid") return <CardGridSkeleton count={count} />;
+  if (variant === "inline") return <InlineSkeleton lines={count} />;
+  return <PageSkeleton />;
+}
+
