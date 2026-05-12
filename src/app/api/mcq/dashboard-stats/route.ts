@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { getSession } from "@/lib/auth/session";
 
-// DEV: hardcoded user ID until Phase 4 auth
-const DEV_USER_ID = "00000000-0000-0000-0000-000000000099";
+export const dynamic = "force-dynamic";
 
 /**
  * GET /api/mcq/dashboard-stats
@@ -10,13 +10,19 @@ const DEV_USER_ID = "00000000-0000-0000-0000-000000000099";
  */
 export async function GET() {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+    const userId = session.id;
+
     const supabase = createServerClient();
 
     // Aggregate stats from mcq_analytics
     const { data: analytics, error: analyticsError } = await supabase
       .from("mcq_analytics")
       .select("*, subjects(name)")
-      .eq("user_id", DEV_USER_ID);
+      .eq("user_id", userId);
 
     if (analyticsError) throw analyticsError;
 
@@ -39,7 +45,7 @@ export async function GET() {
     const { data: activeAttempts, error: activeError } = await supabase
       .from("mcq_attempts")
       .select("id, subject_id, total_questions, current_index, timer_mode, expires_at, started_at, subjects(name)")
-      .eq("user_id", DEV_USER_ID)
+      .eq("user_id", userId)
       .eq("status", "in_progress")
       .order("started_at", { ascending: false })
       .limit(1);
@@ -64,7 +70,7 @@ export async function GET() {
     const { data: recentAttempts } = await supabase
       .from("mcq_attempts")
       .select("id, subject_id, score, total_questions, percentage, started_at, subjects(name)")
-      .eq("user_id", DEV_USER_ID)
+      .eq("user_id", userId)
       .eq("status", "completed")
       .order("started_at", { ascending: false })
       .limit(5);

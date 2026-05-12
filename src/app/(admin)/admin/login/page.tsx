@@ -1,19 +1,21 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useRouter } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
-import Link from "next/link";
-import { Suspense } from "react";
+import { Eye, EyeOff, Loader2, AlertCircle, ShieldAlert } from "lucide-react";
 
-function LoginForm() {
+export default function AdminLoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect") ?? "";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -35,28 +37,48 @@ function LoginForm() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error ?? "Login failed. Please try again.");
+        setError(data.error ?? "Invalid credentials. Please try again.");
         return;
       }
 
-      // Redirect based on role
-      const destination = redirectTo || data.redirectTo || "/dashboard";
-      router.push(destination);
+      // Admin-only gate: reject students
+      if (data.user?.role === "student") {
+        setError(
+          "Access denied. This portal is for administrators only. " +
+          "Please use the student login at /login."
+        );
+        // Sign them back out silently
+        await fetch("/api/auth/logout", { method: "POST" });
+        return;
+      }
+
+      // Redirect to admin dashboard
+      router.push("/admin/dashboard");
       router.refresh();
     } catch {
-      setError("Network error. Please check your connection.");
+      setError("Network error. Please check your connection and try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Card>
+    <Card className="border-destructive/20">
       <CardHeader className="space-y-1 text-center">
-        <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
-        <CardDescription>Enter your credentials to access your account</CardDescription>
+        <CardTitle className="text-2xl font-bold">Administrator Sign In</CardTitle>
+        <CardDescription>
+          Enter your admin credentials to access the management panel
+        </CardDescription>
       </CardHeader>
       <CardContent>
+        {/* Warning banner */}
+        <div className="mb-5 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-sm text-amber-700 dark:text-amber-300">
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            Unauthorized access attempts are logged and monitored.
+          </span>
+        </div>
+
         {error && (
           <div className="mb-4 flex items-start gap-2 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -66,11 +88,11 @@ function LoginForm() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="login-email">Email</Label>
+            <Label htmlFor="admin-email">Admin Email</Label>
             <Input
-              id="login-email"
+              id="admin-email"
               type="email"
-              placeholder="your@email.com"
+              placeholder="admin@example.com"
               required
               autoComplete="email"
               value={email}
@@ -79,15 +101,10 @@ function LoginForm() {
           </div>
 
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="login-password">Password</Label>
-              <Link href="/forgot-password" className="text-xs text-primary hover:underline">
-                Forgot password?
-              </Link>
-            </div>
+            <Label htmlFor="admin-password">Password</Label>
             <div className="relative">
               <Input
-                id="login-password"
+                id="admin-password"
                 type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
                 required
@@ -100,33 +117,34 @@ function LoginForm() {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                tabIndex={-1}
               >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
               </button>
             </div>
           </div>
 
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button
+            type="submit"
+            className="w-full bg-destructive/90 hover:bg-destructive"
+            disabled={loading}
+          >
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Sign in
+            {loading ? "Signing in..." : "Sign in to Admin Portal"}
           </Button>
         </form>
 
         <div className="mt-6 text-center text-sm text-muted-foreground">
-          Don&apos;t have an account?{" "}
-          <Link href="/register" className="font-medium text-primary hover:underline">
-            Register
-          </Link>
+          Not an admin?{" "}
+          <a href="/login" className="font-medium text-primary hover:underline">
+            Student login
+          </a>
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
-      <LoginForm />
-    </Suspense>
   );
 }

@@ -3,8 +3,7 @@ import { createServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-// DEV: hardcoded user ID until Phase 4 auth
-const DEV_USER_ID = "00000000-0000-0000-0000-000000000099";
+import { getSession } from "@/lib/auth/session";
 
 /**
  * GET /api/mcq/history
@@ -22,12 +21,18 @@ export async function GET(req: NextRequest) {
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+    const userId = session.id;
+
     const supabase = createServerClient();
 
     let query = supabase
       .from("mcq_attempts")
       .select("id, subject_id, total_questions, timer_mode, status, score, percentage, correct_count, wrong_count, unanswered_count, started_at, completed_at, subjects(name)", { count: "exact" })
-      .eq("user_id", DEV_USER_ID)
+      .eq("user_id", userId)
       .order("started_at", { ascending: false })
       .range(from, to);
 

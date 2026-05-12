@@ -3,8 +3,7 @@ import { createServerClient } from "@/lib/supabase/server";
 import { computeWeights, weightedSample, shuffleArray, shuffleOptions } from "@/lib/mcq/anti-repeat";
 import { computeExpiresAt } from "@/lib/mcq/timer";
 
-// DEV: hardcoded user ID until Phase 4 auth
-const DEV_USER_ID = "00000000-0000-0000-0000-000000000099";
+import { getSession } from "@/lib/auth/session";
 
 /**
  * POST /api/mcq/start
@@ -27,6 +26,12 @@ export async function POST(req: NextRequest) {
       timerMode: "per_question" | "full_exam" | "none";
       timerValue: number;
     };
+
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+    const userId = session.id;
 
     // --- Validation ---
     if (!subjectId || !count || count < 1) {
@@ -54,7 +59,7 @@ export async function POST(req: NextRequest) {
     const { data: recentAttempts } = await supabase
       .from("mcq_attempts")
       .select("id")
-      .eq("user_id", DEV_USER_ID)
+      .eq("user_id", userId)
       .eq("subject_id", subjectId)
       .in("status", ["completed", "expired"])
       .order("started_at", { ascending: false })
@@ -98,7 +103,7 @@ export async function POST(req: NextRequest) {
     const { data: attempt, error: attemptError } = await supabase
       .from("mcq_attempts")
       .insert({
-        user_id: DEV_USER_ID,
+        user_id: userId,
         subject_id: subjectId,
         total_questions: count,
         timer_mode: timerMode,
