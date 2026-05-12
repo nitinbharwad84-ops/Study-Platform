@@ -74,7 +74,7 @@ export async function POST(
     const now = new Date().toISOString();
 
     // Update attempt to completed
-    const { error: updateError } = await supabase
+    const { data: updatedAttempt, error: updateError } = await supabase
       .from("mcq_attempts")
       .update({
         status: "completed",
@@ -86,9 +86,17 @@ export async function POST(
         completed_at: now,
         updated_at: now,
       })
-      .eq("id", attemptId);
+      .eq("id", attemptId)
+      .select("id, status")
+      .single();
+
+    console.log("[complete] update result:", updatedAttempt, updateError);
 
     if (updateError) throw updateError;
+    if (!updatedAttempt) {
+      console.error("[complete] Update returned no rows — possible RLS block for attemptId:", attemptId);
+      throw new Error("Failed to update attempt status — RLS may be blocking the update");
+    }
 
     // Upsert analytics
     const { data: existingAnalytics } = await supabase
