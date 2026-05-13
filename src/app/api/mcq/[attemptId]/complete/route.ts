@@ -98,53 +98,15 @@ export async function POST(
       throw new Error("Failed to update attempt status — RLS may be blocking the update");
     }
 
-    // Upsert analytics
-    const { data: existingAnalytics } = await supabase
-      .from("mcq_analytics")
-      .select("*")
-      .eq("user_id", attempt.user_id)
-      .eq("subject_id", attempt.subject_id)
-      .single();
-
-    if (existingAnalytics) {
-      const newTotal = existingAnalytics.total_attempts + 1;
-      const newTotalQ = existingAnalytics.total_questions + scoreResult.total_questions;
-      const newCorrect = existingAnalytics.total_correct + scoreResult.correct_count;
-      const newWrong = existingAnalytics.total_wrong + scoreResult.wrong_count;
-      const newUnanswered = existingAnalytics.total_unanswered + scoreResult.unanswered_count;
-      const newAvg = newTotalQ > 0 ? Math.round((newCorrect / newTotalQ) * 10000) / 100 : 0;
-
-      await supabase
-        .from("mcq_analytics")
-        .update({
-          total_attempts: newTotal,
-          total_questions: newTotalQ,
-          total_correct: newCorrect,
-          total_wrong: newWrong,
-          total_unanswered: newUnanswered,
-          avg_score_pct: newAvg,
-          last_attempt_at: now,
-          updated_at: now,
-        })
-        .eq("user_id", attempt.user_id)
-        .eq("subject_id", attempt.subject_id);
-    } else {
-      const avgPct = scoreResult.total_questions > 0
-        ? Math.round((scoreResult.correct_count / scoreResult.total_questions) * 10000) / 100
-        : 0;
-      await supabase.from("mcq_analytics").insert({
-        user_id: attempt.user_id,
-        subject_id: attempt.subject_id,
-        total_attempts: 1,
-        total_questions: scoreResult.total_questions,
-        total_correct: scoreResult.correct_count,
-        total_wrong: scoreResult.wrong_count,
-        total_unanswered: scoreResult.unanswered_count,
-        avg_score_pct: avgPct,
-        last_attempt_at: now,
-        updated_at: now,
-      });
-    }
+    // Update analytics
+    const { updateAnalytics } = await import("@/lib/mcq/analytics");
+    await updateAnalytics(supabase, attempt.user_id, attempt.subject_id, {
+      total_questions: scoreResult.total_questions,
+      correct_count: scoreResult.correct_count,
+      wrong_count: scoreResult.wrong_count,
+      unanswered_count: scoreResult.unanswered_count,
+      percentage: scoreResult.percentage,
+    });
 
     return NextResponse.json({
       success: true,

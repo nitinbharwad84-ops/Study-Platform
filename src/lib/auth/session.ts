@@ -1,7 +1,10 @@
 import { createServerClient as createSSRClient } from "@supabase/ssr";
 import { createServerClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
-import type { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+
+import type { PermissionKey } from "@/lib/auth/permissions";
+import { getUserPermissions } from "@/lib/auth/permissions";
 
 export interface SessionUser {
   id: string;
@@ -10,6 +13,7 @@ export interface SessionUser {
   lastName: string;
   role: "super_admin" | "normal_admin" | "student";
   status: string;
+  permissions: PermissionKey[];
 }
 
 /**
@@ -88,6 +92,9 @@ export async function getSession(req?: NextRequest): Promise<SessionUser | null>
       }
     }
 
+    // Step 3: Fetch permissions
+    const permissionsSet = await getUserPermissions(user.id);
+
     return {
       id: user.id,
       email: user.email!,
@@ -95,6 +102,7 @@ export async function getSession(req?: NextRequest): Promise<SessionUser | null>
       lastName: profile.last_name,
       role: roleName as SessionUser["role"],
       status: profile.status,
+      permissions: Array.from(permissionsSet),
     };
   } catch {
     return null;
@@ -132,17 +140,30 @@ export async function requireSuperAdmin(req?: NextRequest): Promise<SessionUser>
 }
 
 /**
+ * Require a specific RBAC permission.
+ */
+export async function requirePermission(permission: PermissionKey, req?: NextRequest): Promise<SessionUser> {
+  const session = await requireAuth(req);
+  if (!session.permissions.includes(permission)) {
+    throw new Error("FORBIDDEN");
+  }
+  return session;
+}
+
+/**
  * Standardized error responses for auth failures.
  */
 export function authErrorResponse(error: Error) {
   if (error.message === "UNAUTHENTICATED") {
-    return { status: 401, body: { error: "Authentication required" } };
+    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   }
   if (error.message === "FORBIDDEN") {
-    return { status: 403, body: { error: "Insufficient permissions" } };
+    return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
   }
   if (error.message === "ACCOUNT_DISABLED") {
-    return { status: 403, body: { error: "Account is disabled" } };
+    return NextResponse.json({ error: "Account is disabled" }, { status: 403 });
   }
-  return { status: 500, body: { error: "Internal server error" } };
+  
+  console.error("Auth Error:", error);
+  return NextResponse.json({ error: "Internal server error" }, { status: 500 });
 }

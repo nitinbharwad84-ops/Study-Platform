@@ -354,17 +354,17 @@ function MCQExamContent() {
           <p className="text-base font-medium leading-relaxed">{currentQuestion?.question_text}</p>
         </div>
 
-        {/* Options */}
-        <div className="space-y-2.5">
+        <div className="space-y-3">
           {OPTIONS.map((opt) => {
             const text = currentQuestion ? getOption(currentQuestion, opt) : "";
+            const explanation = currentQuestion ? getExplanation(currentQuestion, opt) : "";
             const selected = currentAnswer?.selected_option === opt;
             const correct = currentQuestion?.correct_option === opt;
             const wrong = isLocked && selected && !correct;
             const showCorrect = isLocked && correct;
 
             let style =
-              "flex w-full items-center gap-3 rounded-lg border p-4 text-left text-sm transition-all";
+              "flex w-full items-start gap-3 rounded-xl border p-4 text-left transition-all";
 
             if (!isLocked) {
               style += " border-border hover:border-primary hover:bg-primary/5 cursor-pointer";
@@ -384,52 +384,29 @@ function MCQExamContent() {
                 className={style}
               >
                 {/* Option letter circle */}
-                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold mt-0.5 ${
                   showCorrect ? "bg-emerald-500 text-white"
                   : wrong ? "bg-red-500 text-white"
                   : selected ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground"
                 }`}>
                   {opt}
-                </span>
-                <span className="flex-1">{text}</span>
-                {isLocked && showCorrect && <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />}
-                {isLocked && wrong && <XCircle className="h-4 w-4 text-red-500 shrink-0" />}
+                </div>
+                <div className="flex-1 space-y-2">
+                  <p className="text-sm font-medium">{text}</p>
+                  {isLocked && explanation && (
+                    <p className="text-xs text-muted-foreground bg-background/50 rounded-lg p-2 leading-relaxed">
+                      {explanation}
+                    </p>
+                  )}
+                </div>
+                {isLocked && showCorrect && <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 mt-1" />}
+                {isLocked && wrong && <XCircle className="h-4 w-4 text-red-500 shrink-0 mt-1" />}
               </button>
             );
           })}
         </div>
 
-        {/* Explanation Panel (shown after locking) */}
-        {isLocked && currentQuestion && (
-          <div className="rounded-xl border bg-muted/40 p-4 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-              <BookOpen className="h-3.5 w-3.5" />Explanations
-            </p>
-            {OPTIONS.map((opt) => {
-              const isCorrectOpt = currentQuestion.correct_option === opt;
-              const isSelectedOpt = currentAnswer?.selected_option === opt;
-              return (
-                <div
-                  key={opt}
-                  className={`rounded-lg border p-3 text-sm ${
-                    isCorrectOpt
-                      ? "border-emerald-500/40 bg-emerald-500/5"
-                      : isSelectedOpt
-                      ? "border-red-500/30 bg-red-500/5"
-                      : "border-border/50"
-                  }`}
-                >
-                  <span className={`font-semibold mr-2 ${
-                    isCorrectOpt ? "text-emerald-600 dark:text-emerald-400" :
-                    isSelectedOpt ? "text-red-600 dark:text-red-400" : "text-muted-foreground"
-                  }`}>Option {opt}:</span>
-                  <span className="text-muted-foreground">{getExplanation(currentQuestion, opt)}</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
 
         {/* Navigation */}
         <div className="flex items-center justify-between pt-2">

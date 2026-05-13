@@ -184,7 +184,9 @@ function MCQReviewContent() {
                       </span>
                       <div className="flex-1">
                         <p>{item.options[opt]}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{item.explanations[opt]}</p>
+                        <p className="text-xs text-muted-foreground bg-background/40 rounded-lg p-2 mt-2 leading-relaxed">
+                          {item.explanations[opt]}
+                        </p>
                       </div>
                       <div className="shrink-0">
                         {isCorrect && <Badge variant="outline" className="text-xs border-emerald-500/40 text-emerald-600 dark:text-emerald-400">Correct</Badge>}

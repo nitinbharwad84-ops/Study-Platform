@@ -1,69 +1,65 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 
-export const dynamic = "force-dynamic";
-
-/**
- * POST /api/auth/request-reset
- * Student submits a password reset request (requires admin approval).
- * Does NOT require authentication — student may be locked out.
- */
 export async function POST(req: NextRequest) {
   try {
     const { email, reason } = await req.json();
 
     if (!email) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 });
-    }
-
-    const supabase = createServerClient();
-    const normalizedEmail = email.toLowerCase().trim();
-
-    // Check user exists
-    const { data: user } = await supabase
-      .from("users")
-      .select("id, email, status")
-      .eq("email", normalizedEmail)
-      .single();
-
-    if (!user) {
-      // Don't reveal whether the email exists — return success anyway
-      return NextResponse.json({ success: true });
-    }
-
-    if (user.status === "disabled") {
       return NextResponse.json(
-        { error: "This account has been disabled. Please contact an administrator." },
-        { status: 403 }
+        { error: "Email is required." },
+        { status: 400 }
       );
     }
 
-    // Check for existing pending request
-    const { data: existing } = await supabase
+    const supabaseAdmin = createServerClient();
+
+    // Find user by email
+    const { data: user, error: userError } = await supabaseAdmin
+      .from("users")
+      .select("id")
+      .eq("email", email.toLowerCase().trim())
+      .single();
+
+    if (userError || !user) {
+      // Return 200 even if user not found to prevent email enumeration
+      return NextResponse.json({ success: true });
+    }
+
+    // Check if there's already a pending request
+    const { data: existingRequest } = await supabaseAdmin
       .from("password_reset_requests")
-      .select("id, status, requested_at")
+      .select("id")
       .eq("user_id", user.id)
       .eq("status", "pending")
       .single();
 
-    if (existing) {
-      return NextResponse.json(
-        { error: "A password reset request is already pending. Please wait for admin approval." },
-        { status: 409 }
-      );
+    if (existingRequest) {
+      // Again, pretend it succeeded or tell them it's pending
+      return NextResponse.json({ 
+        success: true, 
+        message: "A password reset request is already pending for this account." 
+      });
     }
 
-    // Create request
-    await supabase.from("password_reset_requests").insert({
-      user_id: user.id,
-      email: normalizedEmail,
-      reason: reason?.trim() || null,
-      status: "pending",
-    });
+    // Insert new request
+    const { error: insertError } = await supabaseAdmin
+      .from("password_reset_requests")
+      .insert({
+        user_id: user.id,
+        email: email.toLowerCase().trim(),
+        reason,
+        status: "pending",
+      });
+
+    if (insertError) {
+      console.error("[POST /api/auth/request-reset] Insert error:", insertError);
+      return NextResponse.json({ error: "Failed to submit request." }, { status: 500 });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[POST /api/auth/request-reset]", error);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

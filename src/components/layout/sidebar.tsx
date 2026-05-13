@@ -9,15 +9,30 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { GraduationCap, Menu, LogOut } from "lucide-react";
-import type { NavGroup } from "@/config/navigation";
+import { adminNavGroups, studentNavGroups } from "@/config/navigation";
+
+import type { SessionUser } from "@/lib/auth/session";
 
 interface SidebarProps {
-  navGroups: NavGroup[];
   variant: "student" | "admin";
+  user?: SessionUser;
 }
 
-function SidebarContent({ navGroups, variant }: SidebarProps) {
+function SidebarContent({ variant, user }: SidebarProps) {
   const pathname = usePathname();
+  const navGroups = variant === "admin" ? adminNavGroups : studentNavGroups;
+
+  // Filter groups and items based on permissions
+  const filteredNavGroups = navGroups
+    .map((group) => {
+      const filteredItems = group.items.filter((item) => {
+        if (!item.requiredPermission) return true;
+        if (!user?.permissions) return false;
+        return user.permissions.includes(item.requiredPermission);
+      });
+      return { ...group, items: filteredItems };
+    })
+    .filter((group) => group.items.length > 0);
 
   return (
     <div className="flex h-full flex-col">
@@ -40,7 +55,7 @@ function SidebarContent({ navGroups, variant }: SidebarProps) {
       {/* Navigation */}
       <ScrollArea className="flex-1 px-3 py-4">
         <nav className="flex flex-col gap-1">
-          {navGroups.map((group, groupIdx) => (
+          {filteredNavGroups.map((group, groupIdx) => (
             <div key={group.label} className={cn(groupIdx > 0 && "mt-4")}>
               <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 {group.label}
@@ -91,20 +106,20 @@ function SidebarContent({ navGroups, variant }: SidebarProps) {
   );
 }
 
-export function Sidebar({ navGroups, variant }: SidebarProps) {
+export function Sidebar({ variant, user }: SidebarProps) {
   return (
     <>
       {/* Desktop Sidebar */}
       <aside className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-[260px] lg:flex-col">
         <div className="flex h-full flex-col border-r bg-card">
-          <SidebarContent navGroups={navGroups} variant={variant} />
+          <SidebarContent variant={variant} user={user} />
         </div>
       </aside>
     </>
   );
 }
 
-export function MobileSidebar({ navGroups, variant }: SidebarProps) {
+export function MobileSidebar({ variant, user }: SidebarProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -116,7 +131,7 @@ export function MobileSidebar({ navGroups, variant }: SidebarProps) {
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="w-[260px] p-0">
-        <SidebarContent navGroups={navGroups} variant={variant} />
+        <SidebarContent variant={variant} user={user} />
       </SheetContent>
     </Sheet>
   );

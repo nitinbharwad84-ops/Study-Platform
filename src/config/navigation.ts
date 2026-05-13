@@ -25,6 +25,7 @@ export interface NavItem {
   icon: LucideIcon;
   badge?: string;
   disabled?: boolean;
+  requiredPermission?: import("@/lib/auth/permissions").PermissionKey;
 }
 
 export interface NavGroup {
@@ -119,16 +120,19 @@ export const adminNavGroups: NavGroup[] = [
         title: "Users",
         href: "/admin/users",
         icon: Users,
+        requiredPermission: "can_manage_users",
       },
       {
         title: "Approved Emails",
         href: "/admin/approved-emails",
         icon: MailPlus,
+        requiredPermission: "can_manage_users",
       },
       {
         title: "Admins",
         href: "/admin/admins",
         icon: ShieldCheck,
+        requiredPermission: "can_manage_admins",
       },
     ],
   },
@@ -139,11 +143,13 @@ export const adminNavGroups: NavGroup[] = [
         title: "Subjects",
         href: "/admin/subjects",
         icon: BookOpen,
+        requiredPermission: "can_manage_subjects",
       },
       {
         title: "MCQ Content",
         href: "/admin/mcq-content",
         icon: Database,
+        requiredPermission: "can_manage_content",
       },
       {
         title: "Long Answer Content",
@@ -151,6 +157,7 @@ export const adminNavGroups: NavGroup[] = [
         icon: FileArchive,
         badge: "Coming Soon",
         disabled: true,
+        requiredPermission: "can_manage_content",
       },
     ],
   },
@@ -161,21 +168,25 @@ export const adminNavGroups: NavGroup[] = [
         title: "AI Providers",
         href: "/admin/providers",
         icon: Cpu,
+        requiredPermission: "can_manage_providers",
       },
       {
         title: "Analytics",
         href: "/admin/analytics",
         icon: BarChart3,
+        requiredPermission: "can_view_analytics",
       },
       {
         title: "Audit Logs",
         href: "/admin/audit",
         icon: ScrollText,
+        requiredPermission: "can_view_audit_logs",
       },
       {
         title: "Password Resets",
         href: "/admin/password-resets",
         icon: KeyRound,
+        requiredPermission: "can_approve_resets",
       },
     ],
   },

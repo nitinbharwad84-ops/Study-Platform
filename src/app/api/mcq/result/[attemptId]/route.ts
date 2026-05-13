@@ -76,6 +76,16 @@ export async function GET(
         console.log("[result] auto-update result:", autoUpdated, autoErr);
 
         if (autoUpdated) {
+          // Update analytics in background
+          const { updateAnalytics } = await import("@/lib/mcq/analytics");
+          await updateAnalytics(supabase, attempt.user_id, attempt.subject_id, {
+            total_questions: autoUpdated.total_questions,
+            correct_count: scoreResult.correct_count,
+            wrong_count: scoreResult.wrong_count,
+            unanswered_count: scoreResult.unanswered_count,
+            percentage: scoreResult.percentage,
+          });
+
           const { generateSummary } = await import("@/lib/mcq/scoring");
           const subjectName = (attempt.subjects as unknown as { name: string })?.name ?? "Subject";
           const pct = scoreResult.percentage;

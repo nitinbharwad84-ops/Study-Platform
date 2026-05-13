@@ -15,37 +15,31 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Bell, LogOut, Settings, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { NavGroup } from "@/config/navigation";
 import Link from "next/link";
+import type { SessionUser } from "@/lib/auth/session";
 
 interface TopbarProps {
   pageTitle: string;
-  navGroups: NavGroup[];
   variant: "student" | "admin";
+  initialUser?: SessionUser;
 }
 
-interface UserProfile {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  role: string;
-}
-
-export function Topbar({ pageTitle, navGroups, variant }: TopbarProps) {
+export function Topbar({ pageTitle, variant, initialUser }: TopbarProps) {
   const router = useRouter();
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const [user, setUser] = useState<SessionUser | null>(initialUser ?? null);
   const [loggingOut, setLoggingOut] = useState(false);
 
-  // Fetch current user from session
+  // Fetch current user from session if not provided by server
   useEffect(() => {
-    fetch("/api/auth/me")
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (data?.user) setUser(data.user);
-      })
-      .catch(() => {});
-  }, []);
+    if (!initialUser) {
+      fetch("/api/auth/me")
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => {
+          if (data?.user) setUser(data.user);
+        })
+        .catch(() => {});
+    }
+  }, [initialUser]);
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -71,7 +65,7 @@ export function Topbar({ pageTitle, navGroups, variant }: TopbarProps) {
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b bg-card/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-card/60 lg:px-6">
       {/* Mobile menu trigger */}
-      <MobileSidebar navGroups={navGroups} variant={variant} />
+      <MobileSidebar variant={variant} user={user || undefined} />
 
       {/* Page title */}
       <div className="flex-1">
