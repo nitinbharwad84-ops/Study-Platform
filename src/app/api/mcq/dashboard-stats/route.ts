@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     if (attemptsError) throw attemptsError;
 
     // 2. Calculate aggregations
-    let totalAttempts = attempts?.length || 0;
+    const totalAttempts = attempts?.length || 0;
     let totalQuestions = 0;
     let totalCorrect = 0;
     let totalWrong = 0;
@@ -42,7 +42,8 @@ export async function GET(req: NextRequest) {
       totalCorrect += a.correct_count || 0;
       totalWrong += a.wrong_count || 0;
 
-      const sName = (a.subjects as any)?.name || "Unknown";
+      const subjects = a.subjects as unknown as { name: string };
+      const sName = subjects?.name || "Unknown";
       if (!subjectMap[a.subject_id]) {
         subjectMap[a.subject_id] = { name: sName, attempts: 0, totalQ: 0, correct: 0, lastAt: a.started_at };
       }
@@ -77,7 +78,7 @@ export async function GET(req: NextRequest) {
     const resumable = activeAttempts?.[0]
       ? {
           attemptId: activeAttempts[0].id,
-          subjectName: (activeAttempts[0].subjects as any)?.name ?? "Unknown",
+          subjectName: (activeAttempts[0].subjects as unknown as { name: string })?.name ?? "Unknown",
           currentIndex: activeAttempts[0].current_index,
           totalQuestions: activeAttempts[0].total_questions,
           timerMode: activeAttempts[0].timer_mode,
@@ -92,7 +93,7 @@ export async function GET(req: NextRequest) {
       .slice(0, 5)
       .map((a) => ({
         attemptId: a.id,
-        subjectName: (a.subjects as any)?.name ?? "Unknown",
+        subjectName: (a.subjects as unknown as { name: string })?.name ?? "Unknown",
         score: a.score,
         totalQuestions: a.total_questions,
         percentage: a.percentage ? parseFloat(String(a.percentage)) : null,

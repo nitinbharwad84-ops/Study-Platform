@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { DataTable } from "@/components/shared/data-table";
-import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -95,7 +94,7 @@ export default function ApprovedEmailsPage() {
     }
   };
 
-  const handleRevoke = async (email: string) => {
+  const handleRevoke = React.useCallback(async (email: string) => {
     setDeletingEmail(email);
     try {
       const res = await fetch(`/api/admin/approved-emails/${encodeURIComponent(email)}`, {
@@ -109,7 +108,7 @@ export default function ApprovedEmailsPage() {
     } finally {
       setDeletingEmail(null);
     }
-  };
+  }, [emails]);
 
   const columns = React.useMemo<ColumnDef<ApprovedEmail>[]>(() => [
     { 
@@ -168,7 +167,7 @@ export default function ApprovedEmailsPage() {
         );
       },
     },
-  ], [deletingEmail]);
+  ], [deletingEmail, handleRevoke]);
 
   return (
     <div className="space-y-6">

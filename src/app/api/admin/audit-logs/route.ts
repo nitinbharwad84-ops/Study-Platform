@@ -27,11 +27,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch audit logs." }, { status: 500 });
     }
 
-    const formattedLogs = logs?.map((l: any) => ({
-      ...l,
-      actor_email: l.users?.email || "System",
-      severity: l.severity || "info" // Default if missing
-    }));
+    const formattedLogs = logs?.map((l: Record<string, unknown>) => {
+      const record = l as unknown as { users?: { email?: string }, severity?: string };
+      return {
+        ...l,
+        actor_email: record.users?.email || "System",
+        severity: record.severity || "info"
+      };
+    });
 
     return NextResponse.json({ logs: formattedLogs });
   } catch (error: unknown) {

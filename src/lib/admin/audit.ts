@@ -17,7 +17,7 @@ export async function logAuditEvent({
   action: string;
   entityType?: string;
   entityId?: string;
-  details?: any;
+  details?: Record<string, unknown>;
   severity?: AuditSeverity;
 }) {
   try {

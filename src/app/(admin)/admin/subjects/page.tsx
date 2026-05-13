@@ -89,7 +89,7 @@ export default function SubjectsPage() {
         body: JSON.stringify({ status: newStatus }),
       });
       if (res.ok) {
-        setSubjects(subjects.map(s => s.id === subjectId ? { ...s, status: newStatus as any } : s));
+        setSubjects(subjects.map(s => s.id === subjectId ? { ...s, status: newStatus as Subject["status"] } : s));
       }
     } catch {
       // Error handled

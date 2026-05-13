@@ -7,7 +7,6 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
@@ -73,7 +72,7 @@ export default function AdminsPage() {
         body: JSON.stringify({ status: newStatus }),
       });
       if (res.ok) {
-        setAdmins(admins.map(a => a.id === adminId ? { ...a, status: newStatus as any } : a));
+        setAdmins(admins.map(a => a.id === adminId ? { ...a, status: newStatus as Admin["status"] } : a));
       }
     } catch {
       // Error handled
@@ -142,7 +141,7 @@ export default function AdminsPage() {
       cell: ({ row }) => (
         <StatusBadge 
           status={row.original.status === "active" ? "success" : "error"} 
-          label={row.original.status === "active" ? "Active" : "Disabled"} 
+          label={row.original.status} 
         />
       ),
     },

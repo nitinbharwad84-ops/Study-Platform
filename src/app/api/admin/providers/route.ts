@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
 
     const supabaseAdmin = createServerClient();
 
-    const payload: any = {
+    const payload: Record<string, unknown> = {
       provider_name,
       updated_at: new Date().toISOString(),
     };

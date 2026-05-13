@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -53,10 +53,17 @@ export default function MCQContentPage() {
   const [submitting, setSubmitting] = useState(false);
 
   // Form State
-  const [newQuestion, setNewQuestion] = useState({
+  const [newQuestion, setNewQuestion] = useState<{
+    subject_id: string;
+    question_text: string;
+    difficulty: "easy" | "medium" | "hard";
+    correct_option: string;
+    options: Record<string, string>;
+    explanations: Record<string, string>;
+  }>({
     subject_id: "",
     question_text: "",
-    difficulty: "medium" as const,
+    difficulty: "medium",
     correct_option: "A",
     options: { A: "", B: "", C: "", D: "" },
     explanations: { A: "", B: "", C: "", D: "" }
@@ -124,6 +131,39 @@ export default function MCQContentPage() {
     }
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSubmitting(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const csvData = event.target?.result as string;
+        const res = await fetch("/api/admin/mcq-questions/import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ csvData, format: "csv" })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          alert(`Successfully imported ${data.count} questions!`);
+          setUploadOpen(false);
+          fetchInitialData(); // Refresh list
+        } else {
+          const data = await res.json();
+          alert(`Import failed: ${data.error}`);
+        }
+        setSubmitting(false);
+      };
+      reader.readAsText(file);
+    } catch {
+      alert("Failed to read file");
+      setSubmitting(false);
+    }
+  };
+
   const toggleStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === "active" ? "inactive" : "active";
     try {
@@ -133,7 +173,7 @@ export default function MCQContentPage() {
         body: JSON.stringify({ status: newStatus })
       });
       if (res.ok) {
-        setQuestions(prev => prev.map(q => q.id === id ? { ...q, status: newStatus as any } : q));
+        setQuestions(prev => prev.map(q => q.id === id ? { ...q, status: newStatus as MCQQuestion["status"] } : q));
       }
     } catch {
       // Error handled
@@ -169,12 +209,15 @@ export default function MCQContentPage() {
     { 
       accessorKey: "status", 
       header: "Status", 
-      cell: ({ row }) => (
+      cell: ({ row }) => {
+      const status = row.original.status as "active" | "inactive" | "archived" | "error";
+      return (
         <StatusBadge 
-          status={row.original.status === "active" ? "success" : row.original.status === "archived" ? "inactive" : "error"} 
-          label={row.original.status} 
+          status={status === "active" ? "success" : status === "archived" ? "inactive" : "error"} 
+          label={status} 
         />
-      ) 
+      );
+    }
     },
     { 
       accessorKey: "created_at", 
@@ -274,7 +317,7 @@ export default function MCQContentPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Difficulty</Label>
-                <Select onValueChange={(val) => setNewQuestion(p => ({ ...p, difficulty: val as any }))}>
+                <Select onValueChange={(val) => setNewQuestion(p => ({ ...p, difficulty: val as MCQQuestion["difficulty"] }))}>
                   <SelectTrigger><SelectValue placeholder="Select difficulty" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="easy">Easy</SelectItem>
@@ -340,10 +383,29 @@ export default function MCQContentPage() {
             <DialogTitle>Upload Question Bank</DialogTitle>
             <DialogDescription>CSV/JSON import functionality is coming soon.</DialogDescription>
           </DialogHeader>
-          <div className="border-2 border-dashed rounded-lg p-8 text-center space-y-2 my-2">
-            <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
-            <p className="text-sm font-medium">Batch Import is under development</p>
-            <p className="text-xs text-muted-foreground">Please use the manual entry form for now.</p>
+          <div className="border-2 border-dashed rounded-lg p-8 text-center space-y-4 my-2">
+            {submitting ? (
+              <div className="space-y-3">
+                <Loader2 className="h-8 w-8 mx-auto animate-spin text-primary" />
+                <p className="text-sm font-medium">Processing your questions...</p>
+              </div>
+            ) : (
+              <>
+                <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Select Question Bank CSV</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Columns: subject, question, optionA, optionB, optionC, optionD, correct, difficulty
+                  </p>
+                </div>
+                <Input 
+                  type="file" 
+                  accept=".csv" 
+                  onChange={handleFileUpload}
+                  className="max-w-[200px] mx-auto cursor-pointer"
+                />
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setUploadOpen(false)}>Close</Button>

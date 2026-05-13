@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { logAuditEvent } from "@/lib/audit/log";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +62,13 @@ export async function POST(req: NextRequest) {
     });
 
     if (signUpError || !authData.user) {
+      await logAuditEvent({
+        actorEmail: normalizedEmail,
+        action: "register_failed_auth",
+        entityType: "auth",
+        severity: "error",
+        details: { error: signUpError?.message || "Auth user creation failed" }
+      });
       console.error("[register] Supabase auth error:", signUpError);
       return NextResponse.json(
         { error: signUpError?.message ?? "Failed to create account" },
@@ -92,6 +100,16 @@ export async function POST(req: NextRequest) {
       .from("approved_emails")
       .update({ status: "claimed", claimed_at: new Date().toISOString() })
       .eq("id", approved.id);
+
+    await logAuditEvent({
+      actorId: userId,
+      actorEmail: normalizedEmail,
+      action: "register_success",
+      entityType: "user",
+      entityId: userId,
+      severity: "success",
+      details: { role: approved.role_to_assign }
+    });
 
     return NextResponse.json({ success: true, userId }, { status: 201 });
   } catch (error) {

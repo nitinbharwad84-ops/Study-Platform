@@ -18,7 +18,7 @@ export async function PATCH(
 
     const supabaseAdmin = createServerClient();
 
-    const updates: any = {};
+    const updates: Record<string, string> = {};
     if (status) updates.status = status;
     if (role) updates.role = role;
 

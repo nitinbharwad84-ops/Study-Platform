@@ -61,7 +61,7 @@ export default function AdminUsersPage() {
     }
   };
 
-  const handleUpdateStatus = async (userId: string, newStatus: User["status"]) => {
+  const handleUpdateStatus = React.useCallback(async (userId: string, newStatus: User["status"]) => {
     setUpdatingId(userId);
     try {
       const res = await fetch(`/api/admin/users/${userId}`, {
@@ -77,7 +77,7 @@ export default function AdminUsersPage() {
     } finally {
       setUpdatingId(null);
     }
-  };
+  }, [users]);
 
   const filtered = statusFilter === "all" ? users : users.filter((u) => u.status === statusFilter);
 
@@ -166,7 +166,7 @@ export default function AdminUsersPage() {
         );
       },
     },
-  ], [updatingId]);
+  ], [updatingId, handleUpdateStatus]);
 
   return (
     <div className="space-y-6">

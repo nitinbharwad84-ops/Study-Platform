@@ -19,7 +19,7 @@ type AuditLog = {
   entity_type: string;
   entity_id: string;
   severity: "info" | "success" | "warning" | "error";
-  details: any;
+  details: Record<string, unknown>;
 };
 
 // Move logic into the component
@@ -48,12 +48,12 @@ export default function AuditPage() {
     }
   };
 
-  const typeIcons = {
+  const typeIcons = React.useMemo(() => ({
     info: <Info className="h-3.5 w-3.5 text-blue-500" />,
     success: <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />,
     warning: <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />,
     error: <XCircle className="h-3.5 w-3.5 text-red-500" />,
-  };
+  }), []);
 
   const columns = React.useMemo<ColumnDef<AuditLog>[]>(() => [
     { 
@@ -87,7 +87,7 @@ export default function AuditPage() {
       header: "ID", 
       cell: ({ row }) => <code className="text-[10px] text-muted-foreground">{row.original.entity_id || "—"}</code> 
     },
-  ], []);
+  ], [typeIcons]);
 
   const filtered = typeFilter === "all" ? logs : logs.filter((l) => l.severity === typeFilter);
 

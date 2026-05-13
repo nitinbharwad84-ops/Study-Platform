@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient as createSSRClient } from "@supabase/ssr";
 import { createServerClient } from "@/lib/supabase/server";
+import { logAuditEvent } from "@/lib/audit/log";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,13 @@ export async function POST(req: NextRequest) {
       });
 
     if (signInError || !authData.user) {
+      await logAuditEvent({
+        actorEmail: email,
+        action: "login_failed",
+        entityType: "auth",
+        severity: "warning",
+        details: { error: signInError?.message || "Invalid credentials" }
+      });
       return NextResponse.json(
         { error: "Invalid email or password. Please try again." },
         { status: 401 }
@@ -61,6 +69,15 @@ export async function POST(req: NextRequest) {
     }
 
     if (profile.status === "disabled" || profile.status === "suspended") {
+      await logAuditEvent({
+        actorId: authData.user.id,
+        actorEmail: profile.email,
+        action: "login_denied_disabled",
+        entityType: "user",
+        entityId: authData.user.id,
+        severity: "warning",
+        details: { status: profile.status }
+      });
       await supabase.auth.signOut();
       return NextResponse.json(
         { error: "Your account has been disabled. Please contact an administrator." },
@@ -110,6 +127,16 @@ export async function POST(req: NextRequest) {
       ...cookieOpts,
       httpOnly: false, // readable by middleware (edge)
       maxAge: 60 * 60 * 24 * 7, // 7 days
+    });
+
+    // Log success (fire and forget - but await to be safe before response returns)
+    await logAuditEvent({
+      actorId: authData.user.id,
+      actorEmail: profile.email,
+      action: "login_success",
+      entityType: "auth",
+      severity: "success",
+      details: { role }
     });
 
     return finalResponse;

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { requirePermission, authErrorResponse } from "@/lib/auth/session";
-import { logAuditEvent } from "@/lib/admin/audit";
+import { logAuditEvent } from "@/lib/audit/log";
 
 export const dynamic = "force-dynamic";
 
@@ -76,11 +76,11 @@ export async function POST(req: NextRequest) {
     await logAuditEvent({
       actorId: admin.id,
       actorEmail: admin.email,
-      action: "Create MCQ Question",
-      entityType: "MCQQuestion",
+      action: "create_question_success",
+      entityType: "mcq_question",
       entityId: question.id,
-      details: { subject_id, difficulty },
       severity: "success",
+      details: { subject_id, difficulty }
     });
 
     return NextResponse.json({ question });

@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import {
   Users, ShieldCheck, BookOpen, Database, Cpu, KeyRound,
-  ScrollText, BarChart3, ArrowRight, CheckCircle2, XCircle, AlertTriangle, Loader2,
+  ScrollText, ArrowRight, CheckCircle2, XCircle, AlertTriangle, Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -19,7 +19,22 @@ import { formatDistanceToNow } from "date-fns";
 // Move logic into the component
 
 export default function AdminDashboardPage() {
-  const [data, setData] = React.useState<any>(null);
+  const [data, setData] = React.useState<{ 
+    stats?: { 
+      totalUsers?: number; 
+      totalAdmins?: number; 
+      totalSubjects?: number; 
+      totalQuestions?: number; 
+      totalProviders?: number; 
+      pendingResets?: number; 
+    }; 
+    recentLogs?: { 
+      action: string; 
+      actor_email: string; 
+      created_at: string; 
+      severity: string; 
+    }[] 
+  } | null>(null);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -125,7 +140,7 @@ export default function AdminDashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {(data?.recentLogs || []).map((entry: any, i: number) => (
+                {(data?.recentLogs || []).map((entry, i: number) => (
                   <div key={i} className="flex items-center gap-3 rounded-lg border p-3 text-sm">
                     <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
                       entry.severity === "success" ? "bg-emerald-500/10" :

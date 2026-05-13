@@ -32,11 +32,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch users." }, { status: 500 });
     }
 
-    const formattedUsers = users?.map((u: any) => ({
-      ...u,
-      role: u.roles?.name || "unknown",
-      roles: undefined
-    }));
+    const formattedUsers = users?.map((u: Record<string, unknown>) => {
+      const record = u as unknown as { roles?: { name?: string } };
+      return {
+        ...u,
+        role: record.roles?.name || "unknown",
+        roles: undefined
+      };
+    });
 
     return NextResponse.json({ users: formattedUsers });
   } catch (error: unknown) {

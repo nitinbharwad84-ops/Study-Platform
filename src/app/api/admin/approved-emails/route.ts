@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { requirePermission, authErrorResponse } from "@/lib/auth/session";
-import { logAuditEvent } from "@/lib/admin/audit";
+import { logAuditEvent } from "@/lib/audit/log";
 
 export const dynamic = "force-dynamic";
 
@@ -60,13 +60,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to approve email." }, { status: 500 });
     }
 
-     const { error: auditError } = await supabaseAdmin.from("audit_logs").insert({
-      admin_id: admin.id,
-      action: "Approve Email",
-      entity_type: "ApprovedEmail",
-      entity_id: cleanEmail,
-      details: { role },
-      ip_address: req.ip || "unknown",
+    await logAuditEvent({
+      actorId: admin.id,
+      actorEmail: admin.email,
+      action: "approve_email_success",
+      entityType: "approved_email",
+      entityId: cleanEmail,
+      severity: "success",
+      details: { role }
     });
 
     return NextResponse.json({ success: true });

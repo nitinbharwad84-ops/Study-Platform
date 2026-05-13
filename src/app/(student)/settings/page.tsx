@@ -1,22 +1,77 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-
 import { ThemeToggle } from "@/components/shared/theme-toggle";
-import { User, Lock, Palette, Loader2 } from "lucide-react";
+import { User, Lock, Palette, Loader2, CheckCircle2 } from "lucide-react";
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [profile, setProfile] = useState({ firstName: "", lastName: "", email: "" });
+  const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-  const handleSave = () => {
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then(res => res.json())
+      .then(data => {
+        if (data.user) {
+          setProfile({
+            firstName: data.user.firstName || "",
+            lastName: data.user.lastName || "",
+            email: data.user.email || ""
+          });
+        }
+      });
+  }, []);
+
+  const handleSave = async () => {
     setLoading(true);
-    setTimeout(() => setLoading(false), 1500);
+    setStatus(null);
+    try {
+      const res = await fetch("/api/user/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ firstName: profile.firstName, lastName: profile.lastName })
+      });
+      if (res.ok) {
+        setStatus({ type: "success", message: "Profile updated successfully!" });
+      } else {
+        const d = await res.json();
+        setStatus({ type: "error", message: d.error || "Failed to update profile" });
+      }
+    } catch {
+      setStatus({ type: "error", message: "Network error" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRequestReset = async () => {
+    setResetLoading(true);
+    setStatus(null);
+    try {
+      const res = await fetch("/api/auth/request-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: profile.email, reason: "Requested from settings" })
+      });
+      if (res.ok) {
+        setStatus({ type: "success", message: "Password reset request submitted! An admin will review it." });
+      } else {
+        const d = await res.json();
+        setStatus({ type: "error", message: d.error || "Failed to submit request" });
+      }
+    } catch {
+      setStatus({ type: "error", message: "Network error" });
+    } finally {
+      setResetLoading(false);
+    }
   };
 
   return (
@@ -27,6 +82,15 @@ export default function SettingsPage() {
       />
 
       <div className="max-w-2xl space-y-6">
+        {status && (
+          <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
+            status.type === "success" ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20" : "bg-red-500/10 text-red-600 border border-red-500/20"
+          }`}>
+            {status.type === "success" ? <CheckCircle2 className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+            {status.message}
+          </div>
+        )}
+
         {/* Profile Section */}
         <Card>
           <CardHeader>
@@ -39,11 +103,19 @@ export default function SettingsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="settings-first-name">First Name</Label>
-                <Input id="settings-first-name" defaultValue="John" />
+                <Input 
+                  id="settings-first-name" 
+                  value={profile.firstName} 
+                  onChange={e => setProfile(p => ({ ...p, firstName: e.target.value }))}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="settings-last-name">Last Name</Label>
-                <Input id="settings-last-name" defaultValue="Doe" />
+                <Input 
+                  id="settings-last-name" 
+                  value={profile.lastName} 
+                  onChange={e => setProfile(p => ({ ...p, lastName: e.target.value }))}
+                />
               </div>
             </div>
             <Button size="sm" disabled={loading} onClick={handleSave}>
@@ -64,7 +136,7 @@ export default function SettingsPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label>Email</Label>
-              <Input value="john@studyplatform.com" disabled className="bg-muted" />
+              <Input value={profile.email} disabled className="bg-muted" />
               <p className="text-xs text-muted-foreground">
                 Email cannot be changed. Contact an administrator for assistance.
               </p>
@@ -75,7 +147,14 @@ export default function SettingsPage() {
               <p className="mt-1 text-sm text-muted-foreground">
                 To reset your password, submit a request that will be reviewed by an administrator.
               </p>
-              <Button variant="outline" size="sm" className="mt-3">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="mt-3" 
+                onClick={handleRequestReset}
+                disabled={resetLoading}
+              >
+                {resetLoading && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
                 Request Password Reset
               </Button>
             </div>
